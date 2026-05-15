@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Álbum FWC 2026 - Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .sticker-btn { transition: all 0.15s ease; user-select: none; }
+        .sticky-header { position: sticky; top: 0; z-index: 40; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 font-sans pb-10">
+
+    <header class="bg-slate-900 border-b border-slate-800 sticky-header shadow-2xl">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="text-center md:text-left">
+                    <h1 class="text-2xl font-black text-yellow-500 italic uppercase">FIFA WORLD CUP 2026™</h1>
+                    <p class="text-xs text-slate-400 uppercase tracking-widest">Panel de Control & Backup</p>
+                </div>
+                
+                <div class="flex gap-2 md:gap-4 justify-center">
+                    <div class="bg-slate-800 px-3 md:px-5 py-2 rounded-lg border border-slate-700 text-center min-w-[80px]">
+                        <span class="block text-[10px] text-slate-500 uppercase font-bold">Obtenidas</span>
+                        <span id="stat-total" class="text-xl font-bold text-blue-400">0</span>
+                    </div>
+                    <div class="bg-slate-800 px-3 md:px-5 py-2 rounded-lg border border-slate-700 text-center min-w-[80px]">
+                        <span class="block text-[10px] text-slate-500 uppercase font-bold">Faltan</span>
+                        <span id="stat-missing" class="text-xl font-bold text-red-400">0</span>
+                    </div>
+                    <div class="bg-slate-800 px-3 md:px-5 py-2 rounded-lg border border-slate-700 text-center min-w-[80px]">
+                        <span class="block text-[10px] text-slate-500 uppercase font-bold">Repes</span>
+                        <span id="stat-repeated" class="text-xl font-bold text-green-400">0</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap justify-center gap-2">
+                    <button onclick="exportData()" class="bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded text-xs font-bold text-white transition">Exportar</button>
+                    <label class="bg-green-700 hover:bg-green-600 px-3 py-1.5 rounded text-xs font-bold text-white cursor-pointer transition">
+                        Importar
+                        <input type="file" id="importFile" class="hidden" accept=".json" onchange="importData(event)">
+                    </label>
+                    <button onclick="resetAlbum()" class="bg-red-900/50 hover:bg-red-800 px-3 py-1.5 rounded text-xs text-red-200 transition">Reset</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 mt-8">
+        <div id="album-content" class="space-y-12">
+            </div>
+    </main>
+
+    <script>
+        const ALBUM_DATA = {
+            groups: [
+                { id: 'A', teams: [['MEX','México'], ['RSA','Sudáfrica'], ['KOR','Corea del Sur'], ['CZE','Rep. Checa']] },
+                { id: 'B', teams: [['CAN','Canadá'], ['BIH','Bosnia-Herzegovina'], ['QAT','Qatar'], ['SUI','Suiza']] },
+                { id: 'C', teams: [['BRA','Brasil'], ['MAR','Marruecos'], ['HAI','Haití'], ['SCO','Escocia']] },
+                { id: 'D', teams: [['USA','EE.UU.'], ['PAR','Paraguay'], ['AUS','Australia'], ['TUR','Turquía']] },
+                { id: 'E', teams: [['GER','Alemania'], ['CUW','Curazao'], ['CIV','Costa de Marfil'], ['ECU','Ecuador']] },
+                { id: 'F', teams: [['NED','Países Bajos'], ['JPN','Japón'], ['SWE','Suecia'], ['TUN','Túnez']] },
+                { id: 'G', teams: [['BEL','Bélgica'], ['EGY','Egipto'], ['IRN','Irán'], ['NZL','N. Zelanda']] },
+                { id: 'H', teams: [['ESP','España'], ['CPV','Cabo Verde'], ['KSA','Arabia Saudita'], ['URU','Uruguay']] },
+                { id: 'I', teams: [['FRA','Francia'], ['SEN','Senegal'], ['IRQ','Iraq'], ['NOR','Noruega']] },
+                { id: 'J', teams: [['ARG','Argentina'], ['ALG','Argelia'], ['AUT','Austria'], ['JOR','Jordania']] },
+                { id: 'K', teams: [['POR','Portugal'], ['COD','RD Congo'], ['UZB','Uzbekistán'], ['COL','Colombia']] },
+                { id: 'L', teams: [['ENG','Inglaterra'], ['CRO','Croacia'], ['GHA','Ghana'], ['PAN','Panamá']] }
+            ],
+            specials: [
+                { id: 'FWC', name: 'Panini Especiales', range: 20, startZero: true },
+                { id: 'CC', name: 'Coca-Cola', range: 14, startZero: false }
+            ]
+        };
+
+        let collection = JSON.parse(localStorage.getItem('fwc2026_pro')) || {};
+
+        function init() {
+            const container = document.getElementById('album-content');
+            container.innerHTML = '';
+
+            // Secciones Especiales
+            const specialSection = createSectionHeader("SECCIONES ESPECIALES", "text-yellow-500");
+            const specialGrid = document.createElement('div');
+            specialGrid.className = "grid grid-cols-1 md:grid-cols-2 gap-8";
+            ALBUM_DATA.specials.forEach(s => specialGrid.appendChild(createTeamCard(s.id, s.name, s.range, s.startZero)));
+            container.appendChild(specialSection);
+            container.appendChild(specialGrid);
+
+            // Grupos
+            ALBUM_DATA.groups.forEach(group => {
+                container.appendChild(createSectionHeader(`GRUPO ${group.id}`, "text-blue-400"));
+                const teamGrid = document.createElement('div');
+                teamGrid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6";
+                group.teams.forEach(team => teamGrid.appendChild(createTeamCard(team[0], team[1], 20, false)));
+                container.appendChild(teamGrid);
+            });
+            updateStats();
+        }
+
+        function createSectionHeader(title, colorClass) {
+            const div = document.createElement('div');
+            div.className = "border-b border-slate-800 pb-2 mt-10";
+            div.innerHTML = `<h2 class="text-xl font-black ${colorClass}">${title}</h2>`;
+            return div;
+        }
+
+        function createTeamCard(code, name, count, startZero) {
+            const card = document.createElement('div');
+            card.className = "bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm";
+            let stickersHtml = '';
+            const start = startZero ? 0 : 1;
+            const end = startZero ? count - 1 : count;
+
+            for(let i = start; i <= end; i++) {
+                const id = `${code}-${i.toString().padStart(2, '0')}`;
+                const val = collection[id] || 0;
+                stickersHtml += `
+                    <div onclick="mod('${id}', 1)" oncontextmenu="event.preventDefault(); mod('${id}', -1)" id="node-${id}"
+                         class="sticker-btn cursor-pointer h-10 flex flex-col items-center justify-center border text-[10px] font-bold rounded relative ${val > 0 ? 'bg-yellow-500 border-yellow-300 text-slate-900' : 'bg-slate-800 border-slate-700 text-slate-500 opacity-40'}">
+                        ${i}${val > 1 ? `<span class="absolute -top-1 -right-1 bg-green-600 text-white px-1 rounded-full text-[8px]">+${val-1}</span>` : ''}
+                    </div>
+                `;
+            }
+            card.innerHTML = `<div class="bg-slate-800 px-3 py-1 flex justify-between items-center text-[11px] font-bold"><span>${name}</span><span class="text-slate-500">${code}</span></div><div class="p-2 grid grid-cols-5 gap-1">${stickersHtml}</div>`;
+            return card;
+        }
+
+        function mod(id, change) {
+            collection[id] = Math.max(0, (collection[id] || 0) + change);
+            if (collection[id] === 0) delete collection[id];
+            localStorage.setItem('fwc2026_pro', JSON.stringify(collection));
+            renderUpdate(id);
+            updateStats();
+        }
+
+        function renderUpdate(id) {
+            const el = document.getElementById(`node-${id}`);
+            if (!el) return;
+            const val = collection[id] || 0;
+            const parts = id.split('-');
+            const num = parts[1];
+            
+            el.className = `sticker-btn cursor-pointer h-10 flex flex-col items-center justify-center border text-[10px] font-bold rounded relative ${val > 0 ? 'bg-yellow-500 border-yellow-300 text-slate-900' : 'bg-slate-800 border-slate-700 text-slate-500 opacity-40'}`;
+            el.innerHTML = `${parseInt(num)} ${val > 1 ? `<span class="absolute -top-1 -right-1 bg-green-600 text-white px-1 rounded-full text-[8px]">+${val-1}</span>` : ''}`;
+        }
+
+        function updateStats() {
+            const totalRequired = (48 * 20) + 20 + 14; // Selecciones + FWC + CC
+            const obtained = Object.keys(collection).length;
+            const repeated = Object.values(collection).reduce((acc, v) => acc + (v > 1 ? v - 1 : 0), 0);
+
+            document.getElementById('stat-total').innerText = obtained;
+            document.getElementById('stat-missing').innerText = totalRequired - obtained;
+            document.getElementById('stat-repeated').innerText = repeated;
+        }
+
+        function exportData() {
+            const blob = new Blob([JSON.stringify(collection)], {type: 'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `backup_album_2026.json`;
+            a.click();
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    collection = data;
+                    localStorage.setItem('fwc2026_pro', JSON.stringify(collection));
+                    init();
+                    alert("¡Progreso cargado!");
+                } catch (err) { alert("Archivo inválido"); }
+            };
+            reader.readAsText(file);
+        }
+
+        function resetAlbum() { if(confirm("¿Seguro que quieres borrar todo el progreso?")) { collection = {}; localStorage.clear(); init(); } }
+
+        init();
+    </script>
+</body>
+</html>
