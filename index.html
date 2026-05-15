@@ -39,8 +39,9 @@
                 </div>
 
                 <div class="flex flex-wrap justify-center gap-2">
-                    <button onclick="exportData()" class="bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded text-xs font-bold text-white transition">Exportar</button>
-                    <label class="bg-green-700 hover:bg-green-600 px-3 py-1.5 rounded text-xs font-bold text-white cursor-pointer transition">
+                    <button onclick="exportRepeated()" class="bg-green-600 hover:bg-green-500 px-3 py-1.5 rounded text-xs font-bold text-white transition shadow-lg">Lista de Repetidas 📄</button>
+                    <button onclick="exportData()" class="bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded text-xs font-bold text-white transition">Respaldar (JSON)</button>
+                    <label class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-xs font-bold text-white cursor-pointer transition">
                         Importar
                         <input type="file" id="importFile" class="hidden" accept=".json" onchange="importData(event)">
                     </label>
@@ -56,6 +57,7 @@
     </main>
 
     <script>
+        // Datos basados en tus documentos PDF
         const ALBUM_DATA = {
             groups: [
                 { id: 'A', teams: [['MEX','México'], ['RSA','Sudáfrica'], ['KOR','Corea del Sur'], ['CZE','Rep. Checa']] },
@@ -84,11 +86,10 @@
             container.innerHTML = '';
 
             // Secciones Especiales
-            const specialSection = createSectionHeader("SECCIONES ESPECIALES", "text-yellow-500");
+            container.appendChild(createSectionHeader("SECCIONES ESPECIALES", "text-yellow-500"));
             const specialGrid = document.createElement('div');
             specialGrid.className = "grid grid-cols-1 md:grid-cols-2 gap-8";
             ALBUM_DATA.specials.forEach(s => specialGrid.appendChild(createTeamCard(s.id, s.name, s.range, s.startZero)));
-            container.appendChild(specialSection);
             container.appendChild(specialGrid);
 
             // Grupos
@@ -142,28 +143,55 @@
             const el = document.getElementById(`node-${id}`);
             if (!el) return;
             const val = collection[id] || 0;
-            const parts = id.split('-');
-            const num = parts[1];
-            
+            const num = id.split('-')[1];
             el.className = `sticker-btn cursor-pointer h-10 flex flex-col items-center justify-center border text-[10px] font-bold rounded relative ${val > 0 ? 'bg-yellow-500 border-yellow-300 text-slate-900' : 'bg-slate-800 border-slate-700 text-slate-500 opacity-40'}`;
             el.innerHTML = `${parseInt(num)} ${val > 1 ? `<span class="absolute -top-1 -right-1 bg-green-600 text-white px-1 rounded-full text-[8px]">+${val-1}</span>` : ''}`;
         }
 
         function updateStats() {
-            const totalRequired = (48 * 20) + 20 + 14; // Selecciones + FWC + CC
+            const totalRequired = (48 * 20) + 20 + 14;
             const obtained = Object.keys(collection).length;
             const repeated = Object.values(collection).reduce((acc, v) => acc + (v > 1 ? v - 1 : 0), 0);
-
             document.getElementById('stat-total').innerText = obtained;
             document.getElementById('stat-missing').innerText = totalRequired - obtained;
             document.getElementById('stat-repeated').innerText = repeated;
+        }
+
+        // --- FUNCIONES DE EXPORTACIÓN ---
+
+        function exportRepeated() {
+            let repeatedText = "--- MI LISTA DE REPETIDAS (MUNDIAL 2026) ---\n\n";
+            let found = false;
+
+            // Ordenar las llaves alfabéticamente para que la lista sea legible
+            const keys = Object.keys(collection).sort();
+
+            keys.forEach(id => {
+                const count = collection[id];
+                if (count > 1) {
+                    found = true;
+                    const numRepeated = count - 1;
+                    repeatedText += `${id}: (${numRepeated} repetidas)\n`;
+                }
+            });
+
+            if (!found) {
+                alert("Aún no tienes estampitas repetidas marcadas.");
+                return;
+            }
+
+            const blob = new Blob([repeatedText], {type: 'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `mis_repetidas_2026.txt`;
+            a.click();
         }
 
         function exportData() {
             const blob = new Blob([JSON.stringify(collection)], {type: 'application/json'});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `backup_album_2026.json`;
+            a.download = `backup_completo_album.json`;
             a.click();
         }
 
@@ -173,19 +201,18 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
-                    const data = JSON.parse(e.target.result);
-                    collection = data;
+                    collection = JSON.parse(e.target.result);
                     localStorage.setItem('fwc2026_pro', JSON.stringify(collection));
                     init();
-                    alert("¡Progreso cargado!");
-                } catch (err) { alert("Archivo inválido"); }
+                } catch (err) { alert("Archivo no válido"); }
             };
             reader.readAsText(file);
         }
 
-        function resetAlbum() { if(confirm("¿Seguro que quieres borrar todo el progreso?")) { collection = {}; localStorage.clear(); init(); } }
+        function resetAlbum() { if(confirm("¿Borrar todo?")) { collection = {}; localStorage.clear(); init(); } }
 
         init();
     </script>
 </body>
+</html>
 </html>
